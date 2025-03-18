@@ -1,0 +1,556 @@
+---
+title: "Marcos_flea_NGS3"
+author: "Charlotte Manvell"
+date: "2022-07-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, error = FALSE)
+```
+
+```{r, message = FALSE}
+library(phyloseq)
+library(vegan)
+library(dplyr)
+library(reshape2)
+library(here)
+library(ggplot2)
+library(DESeq2)
+library(ggsci)
+library(Biostrings)
+library(seqinr)
+library(janitor)
+library(cowplot)
+library(forcats)
+library(tidyr)
+library(DECIPHER)
+library(phangorn)
+library(ggrepel)
+npg <- pal_d3("category10")(10)
+theme_char <- function(base_size = 11, base_family = ""){
+  theme_bw() %+replace%
+    theme(axis.text = element_text(color = "Black"))
+}
+theme_set(theme_char())
+set.seed(12)
+```
+
+```{r}
+ps <- readRDS(here("marcos_flea", "ps_trial.rds"))
+sample_data <- read.csv(here("marcos_flea", "Sample_Info.csv"))
+  rownames(sample_data) <- sample_data$ID
+sample_data(ps) <- sample_data
+psprop <- ps %>%
+  transform_sample_counts(function(otu) otu/sum(otu))
+multi <- genefilter_sample(ps, filterfun_sample(function(x) x > 0), A = 2)
+multips <- prune_taxa(multi, ps)
+  multips.glom <- tax_glom(psprop, taxrank = rank_names(ps)[6])
+tax_table <- as.data.frame(tax_table(ps))
+  tax_table$OTU <- rownames(tax_table)
+seq <- refseq(ps)
+ps
+ps.glom <- tax_glom(ps, taxrank = rank_names(ps)[6])
+```
+
+```{r}
+ps.melt <-  psmelt(ps)
+psp.glom <- tax_glom(psprop, taxrank = rank_names(ps)[6])
+  pspg.melt <- psmelt(psp.glom)
+psp.melt <- psprop %>% psmelt
+otu_table <- as.data.frame(otu_table(ps))
+  otu_sums <- as.data.frame(colSums(otu_table))
+  colnames(otu_sums) <- "Abundance"
+  otu_sums$OTU <- rownames(otu_sums)
+tax_table <- left_join(tax_table, otu_sums, by = "OTU")
+wolb.melt <- psp.melt %>% filter(Genus == "Wolbachia")
+  wolbotu <- unique(wolb.melt$OTU)
+  wolb.melt$Big3 <- ifelse(wolb.melt$OTU == "ASV1", "ASV1", "Other")
+  wolb.melt$Big3 <- ifelse(wolb.melt$OTU == "ASV2", "ASV2", wolb.melt$Big3)
+  wolb.melt$Big3 <- ifelse(wolb.melt$OTU == "ASV3", "ASV3", wolb.melt$Big3)
+wolb_otu_tab <- otu_table %>% select(wolbotu)
+ps.wolb <- prune_taxa(wolbotu, ps)
+bart.melt <- ps.melt %>% filter(Genus == "Bartonella")
+  bartotu <- unique(bart.melt$OTU)
+```
+
+```{r}
+allfam <- names(sort(taxa_sums(psp.glom), decreasing=TRUE))
+top20 <- names(sort(taxa_sums(psp.glom), decreasing=TRUE))[1:20]
+ps.top20 <- transform_sample_counts(psp.glom, function(OTU) OTU/sum(OTU))
+ps.top20 <- prune_taxa(top20, ps.top20)
+plot_bar(ps.top20, x="ID", fill="Family")+ facet_wrap(~Time, scales="free_x")
+ggsave(here("marcos_flea", "Image", "top20.png"), plot = last_plot(), width = 9, height = 6)
+```
+
+```{r}
+tax_table %>% dplyr::filter(Genus == "Wolbachia") %>% dplyr::mutate(sum = sum(Abundance))
+
+3159186/sum(otu_table)
+```
+
+
+
+```{r, fig.height = 6, fig.width = 10}
+fam_replace <- tax_table
+fam_replace$Family <- replace_na(fam_replace$Family, "Unassigned") 
+fam_freq <- fam_replace %>% 
+# mutate(Family = fct_infreq(Family)) %>% 
+  ggplot(aes(x = Family))+
+  geom_bar()+
+  coord_flip()+
+  labs(y = "Number of ASVs")
+fam_abund <- fam_replace %>% group_by(Family) %>% mutate(fam_freq = sum(Abundance)) %>% 
+  distinct(Family, .keep_all = TRUE) %>%  
+  ggplot(aes(x = Family, y = fam_freq))+
+  geom_col()+
+  coord_flip()+
+  labs(y = "Abundance", x = "")+theme(axis.text.y = element_blank())
+plot_grid(fam_freq, fam_abund, rel_widths = c(1, 0.5))
+ggsave(here("marcos_flea", "Image", "Fig2.eps"), width = 8, height = 12.5)
+```
+
+```{r}
+gen_glom <- fam_replace %>% group_by(Genus) %>% mutate(fam_freq = sum(Abundance)) %>% 
+  distinct(Family, .keep_all = TRUE)
+fam_glom <- fam_replace %>% group_by(Family) %>% mutate(fam_freq = sum(Abundance)) %>%   mutate(fam_asvs = n()) %>% distinct(Family, .keep_all = TRUE)
+
+
+tax_glom <- as.data.frame(tax_table(ps.glom))
+  tax_glom$OTU <- rownames(tax_glom)
+prop_table <- as.data.frame(otu_table(ps.glom))
+  prop_sums <- as.data.frame(colSums(prop_table))
+  colnames(prop_sums) <- "Abundance"
+  prop_sums$OTU <- rownames(prop_sums)
+otu_prop <- prop_sums %>% mutate(Proportion = (round(Abundance/sum(Abundance)*100, 4)))
+taxa_prop <- left_join(tax_glom, otu_prop, by = "OTU")
+print_genus <- data.frame(Family = taxa_prop$Family,
+                          Genus = taxa_prop$Genus,
+                          Proportion = taxa_prop$Proportion)
+write.csv(print_genus, here("marcos_flea", "genus_prop.csv"))
+```
+
+
+
+# Diversity
+```{r}
+invsimpson <- as.data.frame(vegan::diversity(otu_table, index = "invsimpson"))
+  colnames(invsimpson) <- "invsimpson"
+  invsimpson$ID <- rownames(invsimpson)
+shannon <- as.data.frame(vegan::diversity(otu_table, index = "shannon"))
+  colnames(shannon) <- "shannon"
+  shannon$ID <- rownames(shannon)
+spprich <- as.data.frame(specnumber(otu_table)) #calc species richness
+  colnames(spprich) <- "spprich"
+  spprich$ID <- rownames(spprich)
+even <- as.data.frame(shannon[,1]/log(spprich[,1])) #calc Pielou's evenness
+  colnames(even) <- "even"
+  even$ID <- rownames(spprich)
+diversity <- left_join(invsimpson, shannon, by = "ID")
+diversity <- left_join(diversity, spprich, by = "ID")
+diversity <- left_join(diversity, even, by = "ID")
+diversity <- left_join(diversity, sample_data, by = "ID")
+
+diversity$Cat_Bart <-  ifelse(diversity$Cat_Bart == "Bartonella Naive", "Bartonella Uninfected", diversity$Cat_Bart)
+diversity$group <- ifelse(diversity$ID == "50UF", "50UF", diversity$Cat)
+diversity$group <- ifelse(diversity$ID == "47UF", "47UF", diversity$group)
+diversity$Cat_Bart <- ifelse(diversity$ID == "47UF", "Unfed Flea", diversity$Cat_Bart)
+diversity$Cat_Bart <- ifelse(diversity$ID == "50UF", "Unfed Flea", diversity$Cat_Bart)
+```
+
+```{r, fig.width = 8, fig.height = 3.5}
+shannon.gg <- diversity %>% 
+  ggplot(aes(x = as.factor(Time), y = shannon, color = Cat_Bart, group = group))+ 
+  geom_point(alpha = 0.8)+geom_line()+
+  labs(x = "Time (days)", y = "Shannon Index")+
+  theme(axis.text.x = element_text(), legend.position = "none")+
+  scale_color_manual(values = c("red", "black", "grey50"))
+invsimpgg <- diversity %>% 
+  ggplot(aes(x = as.factor(Time), y = invsimpson, color = Cat_Bart, group = group))+ 
+  geom_point(alpha = 0.8)+geom_line()+
+  labs(x = "Time (days)", y = "Inverse Simpson Index")+
+  theme(axis.text.x = element_text(), legend.position = "none")+
+  scale_color_manual(values = c("red", "black", "grey50"))
+spprichgg <- diversity %>% 
+  ggplot(aes(x = as.factor(Time), y = spprich, color = Cat_Bart, group = group))+ 
+  geom_point(alpha = 0.8)+geom_line()+
+  labs(x = "Time (days)", y = "Species Richness")+
+  theme(axis.text.x = element_text(), legend.position = "none")+
+  scale_color_manual(values = c("red", "black", "grey50"))
+evennessgg <- diversity %>% 
+  ggplot(aes(x = as.factor(Time), y =even, color = Cat_Bart, group = group))+ 
+  geom_point(alpha = 0.8)+geom_line()+
+  labs(x = "Time (days)", y = "Pielou's Evenness")+
+  theme(axis.text.x = element_text(), legend.position = "none")+
+  scale_color_manual(values = c("red", "black", "grey50"))
+
+bart.type <- c(
+  expression(paste(italic("Bartonella"), " Infected")),
+  expression(paste(italic("Bartonella"), " Uninfected")),
+  "Unfed Flea"
+)
+
+fill.tit <- expression(paste("Cat ", italic("Bartonella"), " Status"))
+
+legend_plot <- diversity %>% 
+  ggplot(aes(x = as.factor(Time), y =even, color = Cat_Bart, group = group))+
+  geom_point()+geom_line()+
+  labs(color = fill.tit)+
+  scale_color_manual(values = c("red", "black", "grey50"), labels = bart.type)+
+  theme(legend.text.align = 0)
+legend <- get_legend(legend_plot)
+
+ugh <- plot_grid(spprichgg, evennessgg, shannon.gg, legend, nrow = 1, labels = c("A", "B", "C"))
+save_plot(plot = ugh, here("marcos_flea", "Image", "Fig3.jpeg"), base_width = 8, base_height = 3.5)
+ugh
+```
+
+```{r}
+bhshan <- diversity %>% filter(Cat_Bart == "Bartonella Infected")
+noshan <- diversity %>% filter(Cat_Bart == "Bartonella Uninfected") 
+t.test(bhshan$shannon, noshan$shannon, paired = FALSE)
+```
+
+```{r}
+bhshan <- diversity %>% filter(Cat_Bart == "Bartonella Infected") %>% filter(Time == "1")
+noshan <- diversity %>% filter(Cat_Bart == "Bartonella Uninfected")%>% filter(Time == "1")
+t.test(bhshan$shannon, noshan$shannon)
+```
+
+
+```{r}
+d1shan <- diversity %>% filter(Time == "1")
+d9shan <- diversity %>% filter(Time == "9")
+t.test(d1shan$shannon, d9shan$shannon, paired = T)
+```
+
+```{r}
+bray <- vegdist(otu_table, "bray")
+bray <- melt(as.matrix(bray), varnames = c("row", "col"))
+ggplot(bray, aes(x = row, y = col, fill = value))+
+  geom_tile()
+```
+
+```{r}
+NMDS = metaMDS(otu_table, k = 2)
+sample.scores <- as.data.frame(scores(NMDS)[1])
+  sample.scores$ID <- rownames(sample.scores)
+  sample.scores <- left_join(sample.scores, sample_data, by = "ID")
+asv.scores <- as.data.frame(scores(NMDS)[2])
+```
+
+```{r}
+sample.scores$xnudge <- "0.05"
+sample.scores$ynudge <- "0.05"
+sample.scores$xnudge <- ifelse(sample.scores$ID == "3711-24hr", 0.10, sample.scores$xnudge)
+sample.scores$Cat_Bart <- ifelse(sample.scores$Cat_Bart == "Bartonella Uninfected", "Bartonella Uninfected", sample.scores$Cat_Bart)
+sample.scores$ID <- ifelse(sample.scores$ID == "50UF", "UF50", sample.scores$ID)
+sample.scores$ID <- ifelse(sample.scores$ID == "47UF", "UF47", sample.scores$ID)
+sample.scores$Cat_Bart <- ifelse(sample.scores$ID == "UF47", "Unfed Flea", sample.scores$Cat_Bart)
+sample.scores$Cat_Bart <- ifelse(sample.scores$ID == "UF50", "Unfed Flea", sample.scores$Cat_Bart)
+
+bart.type <- c(
+  expression(paste(italic("Bartonella"), " Infected")),
+  expression(paste(italic("Bartonella"), " Uninfected")),
+  "Unfed Flea"
+)
+
+fill.tit <- expression(paste("Cat ", italic("Bartonella"), " Status"))
+
+ggplot(sample.scores, aes(x = sites.NMDS1, y = sites.NMDS2, color = Cat_Bart))+
+  geom_point()+
+  theme_char()+
+  geom_text(aes(label = ID), nudge_x = 0.23)+
+  labs(color = fill.tit)+
+  guides(color = guide_legend(override.aes=list(shape = 15, size = 5)))+
+  scale_color_manual(values = c("red", "black", "grey45"), labels = bart.type)+
+  theme(legend.text.align = 0)
+ggsave(here("marcos_flea", "Image", "Fig4.eps"), plot = last_plot(), width = 7, height = 4.5)
+```
+
+
+# Bartonella
+```{r}
+bart.melt %>% 
+ggplot(aes(x = ID, y = Abundance, fill = Cat_Bart))+
+  geom_col(color = "black")+theme_char()+
+  facet_grid(OTU~Cat_Bart, scales = "free_x")+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1), legend.position = "none")+
+  labs(y = "Abundance")+
+  geom_text(aes(label = Abundance), vjust = -0.30)
+ggsave(here("marcos_flea", "Image", "bart.png"), plot = last_plot(), width = 9, height = 6)
+```
+
+
+# Wolbachia
+
+```{r}
+wolbseq <- seq[wolbotu]
+writeXStringSet(wolbseq, here("marcos_flea", "sequences", "wolbseq.fasta"))
+```
+
+
+```{r}
+pspg.melt %>% filter(Genus == "Wolbachia") %>% 
+  ggplot(aes(y = Abundance, x = ID, fill = as.factor(Cat_Bart)))+
+  geom_col(color = "black")+theme_char()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  labs(y = "Wolbachia Proportion", color = "Cat Bartonella")+
+  facet_grid(~Time, scales = "free_x")+
+  scale_fill_manual(values = c("Pink", "Black"))
+```
+
+```{r}
+wolb.melt %>% mutate(Cat = factor(Cat, levels = c("Unfed", "3363", "3508", "3320", "3711"))) %>% 
+  ggplot(aes(x = ID, y = Abundance, fill = Big3))+
+  geom_col(color = "black")+theme_char()+
+  facet_wrap(~Cat, scales = "free_x", nrow = 1)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  labs(y = "Proportion of Total Reads")
+ggsave(here("marcos_flea", "Image", "wolbbig3.png"), plot = last_plot(), width = 9, height = 6)
+```
+
+```{r}
+for(i in 1:10){
+graph <- wolb.melt %>% filter(OTU == wolbotu[i]) %>% filter(Abundance > 0) %>% 
+  ggplot(aes(x = as.factor(Time), y = Abundance, color = Cat, group = Cat))+
+  geom_point()+geom_line()+
+  facet_wrap(~Cat_Bart, scales = "free_x")+theme_char()+
+  labs(x = "Time (days)", y = "Proportion", title = paste(wolbotu[i], "Proportion"))
+print(graph)
+}
+wolb.interest <- c("ASV1", "ASV2", "ASV3")
+
+wolb.melt$group <- ifelse(wolb.melt$Sample == "50UF", "50UF", wolb.melt$Cat)
+wolb.melt$group <- ifelse(wolb.melt$Sample == "47UF", "47UF", wolb.melt$group)
+wolb.melt$group <- ifelse(wolb.melt$Sample == "47UF", "47UF", wolb.melt$group)
+wolb.melt$Cat_Bart <- ifelse(wolb.melt$Sample == "47UF", "Unfed Flea", wolb.melt$Cat_Bart)
+wolb.melt$Cat_Bart <- ifelse(wolb.melt$Sample == "50UF", "Unfed Flea", wolb.melt$Cat_Bart)
+wolb.melt$Cat_Bart <- ifelse(wolb.melt$Cat_Bart == "Bartonella Naive", "Bartonella Uninfected", wolb.melt$Cat_Bart)
+
+bart.type <- c(
+  expression(paste(italic("Bartonella"), " Infected")),
+  expression(paste(italic("Bartonella"), " Uninfected")),
+  "Unfed Flea"
+)
+
+fill.tit <- expression(paste("Cat ", italic("Bartonella"), " Status"))
+wolb.melt %>% filter(OTU %in% wolb.interest) %>% mutate()  %>% 
+  mutate(OTU = factor(OTU, levels = c(wolb.interest))) %>% 
+  mutate(Cat_Bart = factor(Cat_Bart, levels = c("Bartonella Infected", "Bartonella Uninfected", "Unfed Flea"))) %>% 
+  ggplot(aes(x = as.factor(Time), y = Abundance, color = Cat_Bart, group = group))+
+  geom_line()+geom_point()+
+  facet_wrap(~OTU)+theme_char()+
+  labs(x = "Time (days)", y = "Proportion", color = fill.tit)+
+  scale_color_manual(values = c("red","black", "grey65"), labels = bart.type)+
+  theme(legend.position = "right", legend.text.align = 0)
+ggsave(here("marcos_flea", "Image", "Fig5.tiff"), plot = last_plot(), width = 7, height = 3.5)
+```
+
+```{r}
+asv.interest <- c("ASV1", "ASV2", "ASV3", "ASV9", "ASV10", "ASV352")
+
+psp.melt$group <- ifelse(psp.melt$Sample == "50UF", "50UF", psp.melt$Cat)
+psp.melt$group <- ifelse(psp.melt$Sample == "47UF", "47UF", psp.melt$group)
+psp.melt$group <- ifelse(psp.melt$Sample == "47UF", "47UF", psp.melt$group)
+psp.melt$Cat_Bart <- ifelse(psp.melt$Sample == "47UF", "Unfed Flea", psp.melt$Cat_Bart)
+psp.melt$Cat_Bart <- ifelse(psp.melt$Sample == "50UF", "Unfed Flea", psp.melt$Cat_Bart)
+psp.melt %>% filter(OTU %in% asv.interest) %>% mutate()  %>% 
+  mutate(OTU = factor(OTU, levels = c(asv.interest))) %>% 
+  mutate(Cat_Bart = factor(Cat_Bart, levels = c("Bartonella Naive", "Bartonella Infected", "Unfed Flea"))) %>% 
+  ggplot(aes(x = as.factor(Time), y = Abundance, color = Cat_Bart, group = group))+
+  geom_line()+geom_point()+
+  facet_wrap(~OTU, scales = "free_y")+theme_char()+
+  labs(x = "Time (days)", y = "Proportion", color = "Host Bartonella Status")+
+  scale_color_manual(values = c("black", "red", "grey69"))+
+  theme(legend.position = "bottom")
+```
+
+
+
+```{r}
+hm <-prune_taxa(names(sort(taxa_sums(ps),TRUE)[1:300]), ps)
+plot_heatmap(hm, sample.label="ID", na.value = "white")
+```
+
+# DeSeq
+
+Cat Bart w/o nonfed
+```{r}
+multinounfed <- subset_samples(multips, Fed == "Yes")
+deseq <- phyloseq_to_deseq2(multinounfed, ~ Cat_Bart)
+deseq <- DESeq(deseq, test = "Wald", fitType = "parametric")
+```
+
+```{r}
+res <- results(deseq, cooksCutoff = FALSE)
+alpha = 0.01
+res = cbind(as(res, "data.frame"), as(tax_table(multips)[rownames(res), ], "matrix"))
+wolb.dseq <- res %>% filter(Genus == "Wolbachia") %>% filter(padj < 0.05)
+wolb.dseq
+sigtab = res[which(res$padj < alpha),]
+head(sigtab)
+```
+
+```{r}
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
+# Genus order
+x = tapply(sigtab$log2FoldChange, sigtab$Genus, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Genus = factor(as.character(sigtab$Genus), levels=names(x))
+sigtab$OTU <- rownames(sigtab)
+sigtab$Analysis <- c("Cat Bartonella Status")
+ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) + 
+  geom_point(size=2) + 
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))+coord_flip()+
+  labs(title = "Cat Bartonella Status")
+```
+
+Time w/0 unfed
+
+```{r}
+deseq.time <- phyloseq_to_deseq2(multinounfed, ~ Time)
+deseq.time <- DESeq(deseq.time, test = "Wald", fitType = "parametric")
+```
+
+```{r}
+res.time <- results(deseq.time, cooksCutoff = FALSE)
+alpha = 0.05
+res.time = cbind(as(res.time, "data.frame"), as(tax_table(multinounfed)[rownames(res.time), ], "matrix"))
+wolb.time <- res.time %>% filter(Genus == "Wolbachia") %>% filter(padj < 0.05)
+wolb.time
+sigtab.time = res.time[which(res.time$padj < alpha),]
+sigtab.time$OTU <- rownames(sigtab.time)
+head(sigtab.time)
+```
+
+```{r}
+# Phylum order
+x.time = tapply(sigtab.time$log2FoldChange, sigtab.time$Phylum, function(x) max(x))
+x.time = sort(x.time, TRUE)
+sigtab.time$Phylum = factor(as.character(sigtab.time$Phylum), levels=names(x.time))
+# Genus order
+x.time = tapply(sigtab.time$log2FoldChange, sigtab.time$Genus, function(x) max(x.time))
+x.time = sort(x.time, TRUE)
+sigtab.time$Genus = factor(as.character(sigtab.time$Genus), levels=names(x.time))
+sigtab.time$Analysis <- c("Time")
+sigtab.time$OTU <- rownames(sigtab.time)
+ggplot(sigtab.time, aes(x = 1, y = OTU, fill = log2FoldChange))+
+  geom_tile()+
+  theme(axis.text.y = element_text(size = 6), axis.text.x = element_blank())+
+  facet_wrap(~Phylum, scales = "free_y")
+
+
+ggplot(sigtab.time, aes(x=Genus, y=log2FoldChange, color=Phylum)) + 
+  geom_point( alpha = 0.8) + 
+  theme(axis.text.x = element_text(),
+        legend.position = "bottom")+coord_flip()
+```
+
+Fed Status
+
+```{r}
+deseq.fed <- phyloseq_to_deseq2(multips, ~ Fed)
+deseq.fed <- DESeq(deseq.fed, test = "Wald", fitType = "parametric")
+```
+
+```{r}
+res.fed <- results(deseq.fed, cooksCutoff = FALSE)
+res.fed = cbind(as(res.fed, "data.frame"), as(tax_table(multips)[rownames(res.fed), ], "matrix"))
+wolb.fed <- res.fed %>% filter(Genus == "Wolbachia") %>% filter(padj < 0.05)
+wolb.fed 
+
+sigtab.fed = res.fed[which(res.fed$padj < alpha),]
+alpha = 0.01
+sigtab.fed$OTU <- rownames(sigtab.fed)
+head(sigtab.fed)
+```
+
+```{r}
+# Phylum order
+x.fed = tapply(sigtab.fed$log2FoldChange, sigtab.fed$Phylum, function(x) max(x))
+x.fed = sort(x.fed, TRUE)
+sigtab.fed$Phylum = factor(as.character(sigtab.fed$Phylum), levels=names(x.fed))
+# Genus order
+x.fed = tapply(sigtab.fed$log2FoldChange, sigtab.fed$Genus, function(x) max(x.fed))
+x.fed = sort(x.fed, TRUE)
+sigtab.fed$Genus = factor(as.character(sigtab.fed$Genus), levels=names(x.fed))
+sigtab.fed$Analysis <- c("Fed Status")
+
+ggplot(sigtab.fed, aes(x = 1, y = OTU, fill = log2FoldChange))+
+  geom_tile()+
+  theme(axis.text.y = element_text(size = 6), axis.text.x = element_blank())+
+  facet_wrap(~Phylum, scales = "free_y")
+
+
+ggplot(sigtab.fed, aes(x=Genus, y=log2FoldChange, color=Phylum)) + 
+  geom_point( alpha = 0.8) + 
+  theme(axis.text.x = element_text(),
+        legend.position = "right")+coord_flip()+
+  labs(title = "Fed Status")
+```
+
+All Together 
+
+```{r, fig.width = 8}
+alldseq <- bind_rows(sigtab, sigtab.fed, sigtab.time)
+alldseq <- alldseq[complete.cases(alldseq$Genus),]
+
+
+
+ggplot(alldseq, aes(x=OTU, y=Analysis, fill = log2FoldChange)) + 
+  geom_tile()+
+  theme(axis.text.x = element_text(),
+        legend.position = "right",
+        axis.text.y = element_text(size = 10))+coord_flip()
+
+ggplot(alldseq, aes(x=Genus, y=log2FoldChange, fill = Phylum)) + 
+  geom_col(position = "dodge")+
+  theme(axis.text.x = element_text(),
+        legend.position = "bottom",
+        axis.text.y = element_text(size = 10))+coord_flip()+
+  facet_wrap(~Analysis)
+
+alldseq %>% mutate(Analysis = factor(Analysis, levels = c("Fed Status", "Cat Bartonella Status", "Time"))) %>% 
+  mutate(OTU = paste0(Genus, " (",OTU, ")")) %>% 
+ggplot(aes(x=OTU, y=log2FoldChange)) + 
+  geom_segment(aes(x = OTU, y = 0, xend = OTU, yend = log2FoldChange))+
+  geom_point(size = 2, aes(color = Order))+
+  theme(axis.text.x = element_text(),
+        legend.position = "bottom",
+        axis.text.y = element_text(size = 10))+
+  coord_flip()+
+  facet_wrap(~Analysis)
+ggsave(here("marcos_flea", "Image", "alldeseq.png"), plot = last_plot(), width = 8, height = 5.5)
+```
+
+```{r}
+psp.melt %>% filter(OTU %in% alldseq$OTU) %>% filter(Abundance > 0) %>% 
+  mutate(OTU = paste0(Genus, " (",OTU, ")")) %>% 
+  ggplot(aes(x = as.factor(Time), y = Abundance, color = Cat_Bart))+
+  geom_point()+
+  facet_wrap(~OTU, nrow = 5)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom", strip.text = element_text(size = 11))+
+  labs(x = "Time (Days)", y = "Proportion of Reads")+
+  scale_color_manual(values = c("Red", "Black", "grey"))
+ggsave(here("marcos_flea", "Image", "individualdeseq.png"), plot = last_plot(), width = 13, height = 7)
+```
+
+```{r}
+psprop %>% psmelt %>% filter(Genus == "Blautia") %>%  filter(Abundance > 0) %>% 
+  ggplot(aes(y = Abundance, x = as.factor(Time), fill = Cat_Bart))+
+  geom_col(aes(color = Cat_Bart))+geom_point(color = "Black", alpha = 0.6)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "right")+
+  labs(x = "Time (Days)", y = "Proportion of Reads", title = "Blautia Abundance")
+```
+
+
+
+
+
+
+
+
