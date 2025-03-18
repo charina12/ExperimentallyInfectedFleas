@@ -1,0 +1,27 @@
+ID,Tube_ID,Time,Sample_or_Control,Type_Control,Cat_Bart,Fed,Cat,Conc_During,Conc,A260,ITS_Ct,ITS_quant,ssrACt,ssraTm,ssrA,ssrAspp,AECt,AETm,AE,AEspp,cox1
+3320-24hr,27,1,True Sample,Flea,Bartonella Infected,Yes,3320,10.6,123.9,2.14,38.13,-,-,-,0,Negative,22.84,81,1,Wolbachia spp.,1
+3320-24hrFD,28,1,True Sample,Flea Dirt,Bartonella Infected,Yes,3320,NA,47.6,1.02,39.17,-,-,-,0,Negative,31.31,81,1,Wolbachia spp.,1
+3508-24hr,29,1,True Sample,Flea,Bartonella Naive,Yes,3508,25.4,96.3,2.11,-,-,-,-,0,Negative,21.02,81,1,Wolbachia spp.,1
+3508-24hrFD,30,1,True Sample,Flea Dirt,Bartonella Naive,Yes,3508,NA,0.1,1.48,-,-,-,-,0,Negative,33.31,81,1,Wolbachia spp.,1
+3320-9d,31,9,True Sample,Flea,Bartonella Infected,Yes,3320,10.6,255.7,2.13,41.48,-,-,-,0,Negative,22.09,81,1,Wolbachia spp.,1
+3320-9dFD,32,9,True Sample,Flea Dirt,Bartonella Infected,Yes,3320,NA,3.8,1.35,34.83,120,36.06,81.5,1,B. henselae,26.17,80.5,1,Wolbachia spp.,1
+3508-9d,33,9,True Sample,Flea,Bartonella Naive,Yes,3508,28.2,84.6,2.11,-,-,-,-,0,Negative,21.41,81,1,Wolbachia spp.,1
+3508-9dFD,34,9,True Sample,Flea Dirt,Bartonella Naive,Yes,3508,NA,0.5,1.34,-,-,-,-,0,Negative,25.52,80.5,1,Wolbachia spp.,1
+35CC,35,0,Control Sample,Crushing Control,Bartonella Naive,Control,Control,15,0.7,1.24,-,-,-,-,0,Negative,33.66,86.5,0,Negative,0
+36RC,36,0,Control Sample,Reaction Control,Bartonella Naive,Control,Control,14.4,0.3,-18.17,-,-,-,-,0,Negative,34.25,86.5,0,Negative,0
+3363-24hr,37,1,True Sample,Flea,Bartonella Naive,Yes,3363,25.8,195.5,2.12,-,-,-,-,0,Negative,22.37,81,1,Wolbachia spp.,1
+3362-24hrFD,38,1,True Sample,Flea Dirt,Bartonella Naive,Yes,3363,NA,10.8,1.01,-,-,-,-,0,Negative,30.19,81,1,Wolbachia spp.,1
+3711-24hr,39,1,True Sample,Flea,Bartonella Infected,Yes,3711,24.8,175.1,2.13,31.61,496,36.22,82,1,B. henselae,22.89,81,1,Wolbachia spp.,1
+3711-24hrFD,40,1,True Sample,Flea Dirt,Bartonella Infected,Yes,3711,NA,21.4,1.07,31.03,1225,32.3,82,1,B. henselae,29.21,81,1,Wolbachia spp.,1
+3363-9d,41,9,True Sample,Flea,Bartonella Naive,Yes,3363,7.56,112.2,2.13,-,-,-,-,0,Negative,21.21,81,1,Wolbachia spp.,1
+3363-9dFD,42,9,True Sample,Flea Dirt,Bartonella Naive,Yes,3363,NA,6.1,1.61,-,-,-,-,0,Negative,21.54,80.5,1,Wolbachia spp.,1
+3711-9d,43,9,True Sample,Flea,Bartonella Infected,Yes,3711,11.2,117.6,2.12,32.48,370,35.55,82,1,B. henselae,20.5,81,1,Wolbachia spp.,1
+3711-9dFD,44,9,True Sample,Flea Dirt,Bartonella Infected,Yes,3711,NA,3.1,1.22,29.06,5550,30.32,81.3,1,B. henselae,24.17,80.5,1,Wolbachia spp.,1
+45CC,45,0,Control Sample,Crushing Control,Bartonella Naive,Control,Control,8.5,0.2,-1.9,-,-,-,-,0,Negative,32.24,86.5,0,Negative,faint
+46RC,46,0,Control Sample,Reaction Control,Bartonella Naive,Control,Control,15.1,0.1,0.78,-,-,-,-,0,Negative,32.78,86.5,0,Negative,0
+47UF,47,0,True Sample,Flea,Bartonella Naive,No,Unfed,7.78,42.6,2.09,-,-,-,-,0,Negative,20.46,81,1,Wolbachia spp.,1
+48RC,48,0,Control Sample,Reaction Control,Bartonella Naive,Control,Control,5.32,1.6,2.4,-,-,-,-,0,Negative,35.88,85,0,Negative,faint
+49CC,49,0,Control Sample,Crushing Control,Bartonella Naive,Control,Control,2.48,0.9,5.4,-,-,-,-,0,Negative,N/A,None,0,Negative,faint
+50UF,50,0,True Sample,Flea,Bartonella Naive,No,Unfed,8.38,60.5,1.44,-,-,-,-,0,Negative,20.06,81,1,Wolbachia spp.,1
+51RC,51,0,Control Sample,Reaction Control,Bartonella Naive,Control,Control,7.04,1.2,2.6,-,-,-,-,0,Negative,N/A,None,0,Negative,0
+52CC,52,0,Control Sample,Crushing Control,Bartonella Naive,Control,Control,6.28,1.57,2.28,-,-,-,-,0,Negative,38.79,85,0,Negative,0
